@@ -16,6 +16,7 @@ struct TokenStats {
     string nickname;
     uint256 totalScore;
     uint256 gamesPlayed;
+    CrossAddress owner;
 }
 
 /// @title Crypto Snake
@@ -45,8 +46,10 @@ contract CryptoSnake is CollectionMinter, TokenMinter, TokenManager, AddressVali
 
     receive() external payable {}
 
+    error Snake__IncorrectFee();
+
     function createSnake(CrossAddress memory _owner, string memory _nickname) external payable {
-        if (msg.value != s_tokenCreationFee) revert Poap__IncorrectFee();
+        if (msg.value != s_tokenCreationFee) revert Snake__IncorrectFee();
 
         // Construct token image URL.
         string memory img = "https://crypto-snake.vercel.app/logo.png";
@@ -58,7 +61,19 @@ contract CryptoSnake is CollectionMinter, TokenMinter, TokenManager, AddressVali
         attributes[2] = Attribute({trait_type: "Games Played", value: "0"});
 
         uint256 tokenId = _createToken(COLLECTION_ADDRESS, img, attributes, _owner);
-        s_tokenStats[tokenId] = TokenStats({nickname: _nickname, totalScore: 0, gamesPlayed: 0});
+        s_tokenStats[tokenId] = TokenStats({owner: _owner, nickname: _nickname, totalScore: 0, gamesPlayed: 0});
+    }
+
+    error Snake__NotOwner();
+
+    function playSnake(uint256 _tokenId, uint256 _score) external payable {
+        if (s_tokenStats[_tokenId].owner.eth != msg.sender) revert Snake__NotOwner();
+
+        s_tokenStats[_tokenId].totalScore += _score;
+        s_tokenStats[_tokenId].gamesPlayed += 1;
+
+        _setTrait(COLLECTION_ADDRESS, _tokenId, "Total Score", Converter.uint2str(s_tokenStats[_tokenId].totalScore));
+        _setTrait(COLLECTION_ADDRESS, _tokenId, "Games Played", Converter.uint2str(s_tokenStats[_tokenId].gamesPlayed));
     }
 
     /**
