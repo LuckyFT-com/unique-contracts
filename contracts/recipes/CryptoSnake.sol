@@ -22,6 +22,7 @@ struct TokenStats {
 /// @dev A contract that work as a game plaform of snake game
 contract CryptoSnake is CollectionMinter, TokenMinter, TokenManager, AddressValidator, ERC721, ERC721URIStorage {
     mapping(uint256 tokenId => TokenStats) private s_tokenStats;
+    uint256 private s_tokenCreationFee;
 
     /// @dev Address of the NFT collection. Created at the deploy time.
     address private immutable COLLECTION_ADDRESS;
@@ -29,7 +30,9 @@ contract CryptoSnake is CollectionMinter, TokenMinter, TokenManager, AddressVali
     /// @dev This contract mints a snake game collection in the constructor.
     ///      CollectionMinter(true, true, false) means token attributes will be:
     ///      mutable (true) by the collection admin (true), but not by the token owner (false).
-    constructor() CollectionMinter(true, true, false) {
+    constructor(uint256 _tokenCreationFee) CollectionMinter(true, true, false) {
+        s_tokenCreationFee = _tokenCreationFee;
+
         // The contract mints a collection and becomes the collection owner,
         // so it has permissions to mutate its tokens' attributes.
         COLLECTION_ADDRESS = _mintCollection(
@@ -43,6 +46,8 @@ contract CryptoSnake is CollectionMinter, TokenMinter, TokenManager, AddressVali
     receive() external payable {}
 
     function createSnake(CrossAddress memory _owner, string memory _nickname) external payable {
+        if (msg.value != s_tokenCreationFee) revert Poap__IncorrectFee();
+
         // Construct token image URL.
         string memory img = "https://crypto-snake.vercel.app/logo.png";
 
@@ -84,13 +89,19 @@ contract CryptoSnake is CollectionMinter, TokenMinter, TokenManager, AddressVali
     function tokenURI(uint256 tokenId) public view override(ERC721, ERC721URIStorage) returns (string memory) {
         string memory tokenName = s_tokenStats[tokenId].nickname;
         string memory tokenDescription = "Crypto Snake";
-        string memory svgString = _tokenSVG(tokenName, tokenId, s_tokenStats[tokenId].totalScore, s_tokenStats[tokenId].gamesPlayed);
+        uint256 totalScore = s_tokenStats[tokenId].totalScore;
+        uint256 gamesPlayed = s_tokenStats[tokenId].gamesPlayed;
+        string memory svgString = _tokenSVG(tokenName, tokenId, totalScore, gamesPlayed);
         string memory json = string(
             abi.encodePacked(
                 '{"name":"',
                 tokenName,
                 '","description":"',
                 tokenDescription,
+                '","totalScore":',
+                Converter.uint2str(totalScore),
+                '","gamesPlayed":',
+                Converter.uint2str(gamesPlayed),
                 '","image": "data:image/svg+xml;base64,',
                 Base64.encode(bytes(svgString)),
                 '"}'
