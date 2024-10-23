@@ -37,6 +37,7 @@
     "local-release": "yarn ci && cd ./dist && changeset version && changeset publish && yarn remove-dist"
   },
   "dependencies": {
+    "@openzeppelin/contracts": "^5.1.0",
     "@unique-nft/solidity-interfaces": "^1.0.1"
   },
   "devDependencies": {
