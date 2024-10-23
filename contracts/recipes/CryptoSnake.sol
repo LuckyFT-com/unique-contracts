@@ -7,6 +7,7 @@ import {CollectionMinter} from "../CollectionMinter.sol";
 import {TokenMinter, Attribute, CrossAddress} from "../TokenMinter.sol";
 import {TokenManager} from "../TokenManager.sol";
 import {AddressValidator} from "../AddressValidator.sol";
+import {Base64} from "../libraries/Base64.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -24,6 +25,7 @@ contract CryptoSnake is CollectionMinter, TokenMinter, TokenManager, AddressVali
 
     /// @dev Address of the NFT collection. Created at the deploy time.
     address private immutable COLLECTION_ADDRESS;
+
     /// @dev This contract mints a snake game collection in the constructor.
     ///      CollectionMinter(true, true, false) means token attributes will be:
     ///      mutable (true) by the collection admin (true), but not by the token owner (false).
@@ -51,11 +53,7 @@ contract CryptoSnake is CollectionMinter, TokenMinter, TokenManager, AddressVali
         attributes[2] = Attribute({trait_type: "Games Played", value: "0"});
 
         uint256 tokenId = _createToken(COLLECTION_ADDRESS, img, attributes, _owner);
-        s_tokenStats[tokenId] = TokenStats({
-            nickname: _nickname,
-            totalScore: 0,
-            gamesPlayed: 0
-        });
+        s_tokenStats[tokenId] = TokenStats({nickname: _nickname, totalScore: 0, gamesPlayed: 0});
     }
 
     /**
@@ -81,5 +79,88 @@ contract CryptoSnake is CollectionMinter, TokenMinter, TokenManager, AddressVali
         // collection.confirmCollectionSponsorship();
 
         return collectionAddress;
+    }
+
+    function tokenURI(uint256 tokenId) public view override(ERC721, ERC721URIStorage) returns (string memory) {
+        string memory tokenName = s_tokenStats[tokenId].nickname;
+        string memory tokenDescription = "Crypto Snake";
+        string memory svgString = _tokenSVG(tokenName, tokenId, s_tokenStats[tokenId].totalScore, s_tokenStats[tokenId].gamesPlayed);
+        string memory json = string(
+            abi.encodePacked(
+                '{"name":"',
+                tokenName,
+                '","description":"',
+                tokenDescription,
+                '","image": "data:image/svg+xml;base64,',
+                Base64.encode(bytes(svgString)),
+                '"}'
+            )
+        );
+        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(json))));
+
+        return super.tokenURI(tokenId);
+    }
+
+    function _tokenSVG(
+        string memory _nickname,
+        uint256 _tokenId,
+        uint256 _totalScore,
+        uint256 _gamePlayed
+    ) public pure returns (string memory) {
+        return
+            string.concat(
+                '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:green">',
+                svg.text(
+                    string.concat(
+                        svg.prop("x", "20"),
+                        svg.prop("y", "40"),
+                        svg.prop("font-size", "22"),
+                        svg.prop("fill", "white")
+                    ),
+                    string.concat(svg.cdata("Crypto Snake #"), utils.uint2str(_tokenId))
+                ),
+                svg.rect(
+                    string.concat(
+                        svg.prop("fill", "red"),
+                        svg.prop("x", "20"),
+                        svg.prop("y", "50"),
+                        svg.prop("width", utils.uint2str(160)),
+                        svg.prop("height", utils.uint2str(10))
+                    ),
+                    utils.NULL
+                ),
+                svg.text(
+                    string.concat(
+                        svg.prop("x", "20"),
+                        svg.prop("y", "100"),
+                        svg.prop("font-size", "22"),
+                        svg.prop("fill", "white")
+                    ),
+                    _nickname
+                ),
+                svg.text(
+                    string.concat(
+                        svg.prop("x", "20"),
+                        svg.prop("y", "160"),
+                        svg.prop("font-size", "22"),
+                        svg.prop("fill", "white")
+                    ),
+                    string.concat(svg.cdata("Total Score: "), utils.uint2str(_totalScore))
+                ),
+                svg.text(
+                    string.concat(
+                        svg.prop("x", "20"),
+                        svg.prop("y", "200"),
+                        svg.prop("font-size", "22"),
+                        svg.prop("fill", "white")
+                    ),
+                    string.concat(svg.cdata("Games Played: "), utils.uint2str(_gamePlayed))
+                ),
+                "</svg>"
+            );
+    }
+
+    function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC721URIStorage) returns (bool) {
+        return super.supportsInterface(interfaceId);
     }
 }
